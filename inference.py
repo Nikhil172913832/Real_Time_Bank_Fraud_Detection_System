@@ -1,21 +1,55 @@
+"""
+Real-Time Fraud Detection Inference Engine with SHAP Explainability
+===================================================================
+
+This module performs real-time fraud detection on Kafka message streams
+with model explainability using SHAP values.
+
+Features:
+- Kafka consumer with batch processing
+- XGBoost model inference
+- SHAP value calculation for explainability
+- PostgreSQL persistence
+- Email alerting for detected fraud
+"""
+
 import time
 import pandas as pd
-import sqlite3
+import psycopg2
 from kafka import KafkaConsumer
 import msgpack
 import joblib
-import smtplib
-from email.message import EmailMessage
+import logging
+import json
+from config import config
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('logs/inference.log'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
+
 # === Config ===
-BATCH_SIZE = 1
-BATCH_TIMEOUT = 2  # seconds
-KAFKA_TOPIC = "transactions"
-BOOTSTRAP_SERVERS = "localhost:9092"
-THRESHOLD = 0.2
+BATCH_SIZE = config.BATCH_SIZE
+BATCH_TIMEOUT = config.BATCH_TIMEOUT
+KAFKA_TOPIC = config.KAFKA_TOPIC
+BOOTSTRAP_SERVERS = config.KAFKA_BOOTSTRAP_SERVERS
+THRESHOLD = config.FRAUD_THRESHOLD
 
 # === Load model and training-time columns ===
-model = joblib.load("xgb_final.pkl")
-expected_columns = joblib.load("feature_columns.pkl")
+try:
+    model = joblib.load(config.MODEL_PATH)
+    expected_columns = joblib.load(config.FEATURE_COLUMNS_PATH)
+    logger.info(f"Model loaded from {config.MODEL_PATH}")
+    logger.info(f"Expected features: {len(expected_columns)}")
+except Exception as e:
+    logger.error(f"Failed to load model: {e}")
+    raise
 
 # === Features used during encoding ===
 categorical_features = [
@@ -24,57 +58,75 @@ categorical_features = [
     "device_match", "hour_of_day", "day_of_week", "is_weekend", "month"
 ]
 
-# === Setup SQLite ===
-conn = sqlite3.connect("fraud_results.db")
-cursor = conn.cursor()
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS fraud_alerts (
-    transaction_id TEXT PRIMARY KEY,
-    sender_id TEXT,
-    amount REAL,
-    timestamp TEXT,
-    merchant_category TEXT,
-    fraud_probability REAL
-)
-""")
-conn.commit()
+# === Setup PostgreSQL connection ===
+try:
+    conn = psycopg2.connect(config.DATABASE_URL)
+    cursor = conn.cursor()
+    logger.info("Connected to PostgreSQL database")
+except Exception as e:
+    logger.error(f"Database connection failed: {e}")
+    raise
 
 # === Kafka Consumer ===
 consumer = KafkaConsumer(
     KAFKA_TOPIC,
     bootstrap_servers=BOOTSTRAP_SERVERS,
     value_deserializer=lambda m: msgpack.unpackb(m, raw=False),
-    auto_offset_reset="latest",
-    group_id="fraud-detector-batch"
+    auto_offset_reset=config.KAFKA_AUTO_OFFSET_RESET,
+    group_id=config.KAFKA_CONSUMER_GROUP,
+    max_poll_records=config.KAFKA_MAX_POLL_RECORDS
 )
-def send_fraud_alert_email(user_id, transaction_id, amount, to_email='nikhilarora13832@gmail.com'):
-    msg = EmailMessage()
-    msg['Subject'] = f'⚠️ Fraudulent Transaction Alert for User {user_id}'
-    msg['From'] = 'nikhilarora1729@gmail.com'
-    msg['To'] = to_email
+logger.info(f"Kafka consumer initialized for topic: {KAFKA_TOPIC}")
 
-    msg.set_content(f'''
-    Dear User {user_id},
 
-    A potentially fraudulent transaction was detected:
-    - Transaction ID: {transaction_id}
-    - Amount: ${amount}
+def send_fraud_alert_email(user_id, transaction_id, amount):
+    """Send email alert for detected fraud."""
+    if not config.ENABLE_EMAIL_ALERTS:
+        logger.info(f"Email alerts disabled. Would send alert for transaction {transaction_id}")
+        return
+    
+    try:
+        import smtplib
+        from email.message import EmailMessage
+        
+        msg = EmailMessage()
+        msg['Subject'] = f'⚠️ Fraudulent Transaction Alert for User {user_id}'
+        msg['From'] = config.ALERT_EMAIL_FROM
+        msg['To'] = config.ALERT_EMAIL_TO
 
-    Please review this transaction immediately.
+        msg.set_content(f'''
+        Dear User {user_id},
 
-    Regards,
-    Fraud Detection System
-    ''')
+        A potentially fraudulent transaction was detected:
+        - Transaction ID: {transaction_id}
+        - Amount: ${amount}
 
-    # Use Gmail SMTP with App Password
-    with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
-        smtp.login('nikhilarora1729@gmail.com', 'tndq nrlh mcwe ebne')
-        smtp.send_message(msg)
-# === Batch Processor ===
+        Please review this transaction immediately.
+
+        Regards,
+        Fraud Detection System
+        ''')
+
+        with smtplib.SMTP_SSL(config.SMTP_SERVER, config.SMTP_PORT) as smtp:
+            smtp.login(config.SMTP_USERNAME, config.SMTP_PASSWORD)
+            smtp.send_message(msg)
+        
+        logger.info(f"Alert email sent for transaction {transaction_id}")
+    except Exception as e:
+        logger.error(f"Failed to send email alert: {e}")
+
+
 def process_batch(batch):
+    """
+    Process a batch of transactions for fraud detection.
+    
+    Includes SHAP value calculation for model explainability.
+    """
     df = pd.DataFrame(batch)
     if df.empty:
         return
+
+    batch_start = time.time()
 
     drop_cols = [
         'fraud_bool', 'pattern', 'transaction_id', 'sender_id', 'receiver_id',
@@ -93,38 +145,80 @@ def process_batch(batch):
     df_encoded = df_encoded[expected_columns]
 
     # Predict fraud probabilities
-    fraud_probs = model.predict_proba(df_encoded)[:, 0]
+    fraud_probs = model.predict_proba(df_encoded)[:, 1]
     predictions = (fraud_probs > THRESHOLD).astype(int)
 
-    for tx, prob, pred in zip(batch, fraud_probs, predictions):
+    # Calculate SHAP values for explainability (optional - can be expensive)
+    shap_values_batch = None
+    if config.ENABLE_MODEL_MONITORING:
+        try:
+            import shap
+            explainer = shap.TreeExplainer(model)
+            shap_values = explainer.shap_values(df_encoded)
+            
+            # Handle multi-class output
+            if isinstance(shap_values, list):
+                shap_values_batch = shap_values[1]  # Fraud class
+            else:
+                shap_values_batch = shap_values
+        except Exception as e:
+            logger.warning(f"SHAP calculation failed: {e}")
+
+    # Process each transaction
+    for i, (tx, prob, pred) in enumerate(zip(batch, fraud_probs, predictions)):
         tx_id = tx["transaction_id"]
         sender = tx["sender_id"]
+        
+        # Calculate latency
+        latency_ms = (time.time() - batch_start) * 1000 / len(batch)
 
         if pred == 1:
-            print(f"🚨 Fraud Detected: {tx_id} | Prob: {prob:.2f} | Sender: {sender}")
+            logger.warning(f"🚨 Fraud Detected: {tx_id} | Prob: {prob:.4f} | Latency: {latency_ms:.2f}ms")
+            
+            # Send alert
             send_fraud_alert_email(sender, tx_id, tx["amount"])
+            
+            # Prepare SHAP values
+            shap_json = None
+            if shap_values_batch is not None:
+                shap_dict = {
+                    col: float(shap_values_batch[i, j])
+                    for j, col in enumerate(expected_columns)
+                }
+                # Sort by absolute value
+                shap_dict = dict(sorted(shap_dict.items(), key=lambda x: abs(x[1]), reverse=True))
+                shap_json = json.dumps(shap_dict)
+            
             try:
                 cursor.execute("""
-                    INSERT OR IGNORE INTO fraud_alerts 
-                    (transaction_id, sender_id, amount, timestamp, merchant_category, fraud_probability)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    INSERT INTO fraud_alerts 
+                    (transaction_id, sender_id, amount, alert_timestamp, merchant_category, fraud_probability)
+                    VALUES (%s, %s, %s, CURRENT_TIMESTAMP, %s, %s)
+                    ON CONFLICT (transaction_id) DO NOTHING
                 """, (
                     tx_id,
                     sender,
                     tx["amount"],
-                    tx["timestamp"],
                     tx.get("merchant_category", "unknown"),
                     float(prob)
                 ))
                 conn.commit()
             except Exception as e:
-                print(f"DB Insert Error: {e}")
+                logger.error(f"DB Insert Error: {e}")
+                conn.rollback()
         else:
-            print(f"✅ Legit Transaction: {tx_id} | Prob: {prob:.2f}")
+            logger.info(f"✅ Legit Transaction: {tx_id} | Prob: {prob:.4f} | Latency: {latency_ms:.2f}ms")
+
+    batch_latency = (time.time() - batch_start) * 1000
+    logger.info(f"Batch processed: {len(batch)} transactions in {batch_latency:.2f}ms")
+
 
 # === Inference Loop ===
 batch = []
 first_ts = None
+total_processed = 0
+
+logger.info("Starting fraud detection inference loop...")
 
 try:
     for message in consumer:
@@ -137,10 +231,20 @@ try:
 
         if len(batch) >= BATCH_SIZE or (time.time() - first_ts) >= BATCH_TIMEOUT:
             process_batch(batch)
+            total_processed += len(batch)
             batch = []
             first_ts = None
+            
+            if total_processed % 100 == 0:
+                logger.info(f"Total transactions processed: {total_processed}")
+                
 except KeyboardInterrupt:
-    print("Shutting down...")
+    logger.info("Shutting down gracefully...")
+except Exception as e:
+    logger.error(f"Inference loop error: {e}", exc_info=True)
+finally:
+    consumer.close()
+    cursor.close()
+    conn.close()
+    logger.info(f"Inference engine stopped. Total processed: {total_processed}")
 
-consumer.close()
-conn.close()
