@@ -1,0 +1,88 @@
+name: Model Training
+
+on:
+  schedule:
+    # Run weekly on Sunday at 00:00 UTC
+    - cron: '0 0 * * 0'
+  workflow_dispatch:
+    inputs:
+      model_type:
+        description: 'Model type to train'
+        required: true
+        default: 'xgboost'
+        type: choice
+        options:
+          - xgboost
+          - lightgbm
+          - ensemble
+          - stacking
+
+jobs:
+  train-model:
+    name: Train ML Model
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.10"
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Download training data
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      run: |
+        # Download data from S3 or other source
+        echo "Downloading training data..."
+        # aws s3 cp s3://fraud-detection-data/training/latest.csv data/
+
+    - name: Train model
+      env:
+        MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
+        MODEL_TYPE: ${{ github.event.inputs.model_type || 'xgboost' }}
+      run: |
+        python training.py --model-type $MODEL_TYPE --log-mlflow
+
+    - name: Evaluate model
+      run: |
+        python scripts/evaluate_model.py
+
+    - name: Upload model artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: model-artifacts
+        path: models/
+        retention-days: 30
+
+    - name: Register model
+      env:
+        MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
+      run: |
+        python scripts/register_model.py --stage Staging
+
+    - name: Create model report
+      run: |
+        python scripts/generate_model_report.py > model_report.md
+
+    - name: Comment PR with results
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          const report = fs.readFileSync('model_report.md', 'utf8');
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: report
+          });

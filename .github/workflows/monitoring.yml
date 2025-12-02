@@ -1,0 +1,64 @@
+name: Performance Monitoring
+
+on:
+  schedule:
+    # Run every 6 hours
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+jobs:
+  monitor-performance:
+    name: Monitor Model Performance
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.10"
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Check data drift
+      env:
+        DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
+      run: |
+        python scripts/check_drift.py --days 1
+
+    - name: Evaluate production model
+      env:
+        DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      run: |
+        python scripts/evaluate_production.py
+
+    - name: Generate performance report
+      run: |
+        python scripts/performance_report.py > performance_report.md
+
+    - name: Create issue if drift detected
+      if: failure()
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          const report = fs.readFileSync('performance_report.md', 'utf8');
+          github.rest.issues.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title: '🚨 Model Drift Detected',
+            body: report,
+            labels: ['model-drift', 'urgent']
+          });
+
+    - name: Send alert
+      if: failure()
+      run: |
+        echo "Model drift or performance degradation detected!"
+        # Add notification logic (Slack, PagerDuty, etc.)
