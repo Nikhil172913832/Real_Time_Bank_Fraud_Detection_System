@@ -109,12 +109,120 @@ services:
     networks:
       - fraud-detection-network
 
+  # Fraud Detection API and Inference Pipeline
+  fraud-detection-api:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile
+    container_name: fraud-detection-api
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: broker:29092
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: fraud_detection
+      POSTGRES_USER: fraud_user
+      POSTGRES_PASSWORD: fraud_password_secure_123
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      MODEL_PATH: /app/models
+      LOG_LEVEL: INFO
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./models:/app/models
+      - ./logs:/app/logs
+    depends_on:
+      broker:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    command: python app.py
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - fraud-detection-network
+
+  # Transaction Generator
+  transaction-generator:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile
+    container_name: transaction-generator
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: broker:29092
+      TRANSACTION_RATE: 100
+      FRAUD_RATE: 0.05
+      LOG_LEVEL: INFO
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      broker:
+        condition: service_healthy
+    command: python example_transaction_generator.py
+    networks:
+      - fraud-detection-network
+
+  # Model Training (optional, can be run on-demand)
+  model-trainer:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile
+    container_name: model-trainer
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: broker:29092
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: fraud_detection
+      POSTGRES_USER: fraud_user
+      POSTGRES_PASSWORD: fraud_password_secure_123
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      MODEL_OUTPUT_PATH: /app/models
+      LOG_LEVEL: INFO
+    volumes:
+      - ./models:/app/models
+      - ./data:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - postgres
+    command: python training.py
+    profiles:
+      - training
+    networks:
+      - fraud-detection-network
+
+  # MLflow for model tracking and registry
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:latest
+    container_name: mlflow
+    environment:
+      BACKEND_STORE_URI: postgresql://fraud_user:fraud_password_secure_123@postgres:5432/mlflow
+      ARTIFACT_ROOT: /mlflow/artifacts
+    ports:
+      - "5001:5000"
+    volumes:
+      - mlflow_data:/mlflow
+    depends_on:
+      - postgres
+    command: >
+      mlflow server
+      --backend-store-uri postgresql://fraud_user:fraud_password_secure_123@postgres:5432/mlflow
+      --default-artifact-root /mlflow/artifacts
+      --host 0.0.0.0
+      --port 5000
+    networks:
+      - fraud-detection-network
+
 volumes:
   kafka_data:
     driver: local
   postgres_data:
     driver: local
   pgadmin_data:
+    driver: local
+  mlflow_data:
     driver: local
 
 networks:
