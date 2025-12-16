@@ -35,16 +35,16 @@ skip_glob = ["**/venv/**", "**/data/**", "**/models/**", "**/logs/**"]
 
 [tool.pytest.ini_options]
 minversion = "7.0"
-addopts = "-ra -q --strict-markers --cov=src --cov-report=term-missing --cov-report=html"
+addopts = "-ra -q --strict-markers --cov=src --cov=training --cov=inference --cov=app --cov-report=term-missing --cov-report=html --cov-fail-under=80"
 testpaths = ["tests"]
-python_files = ["test_*.py", "*_test.py"]
+python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 markers = [
-    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
-    "integration: marks tests as integration tests",
-    "unit: marks tests as unit tests",
-    "load: marks tests as load tests",
+    "unit: Unit tests for individual components",
+    "integration: Integration tests requiring external services",
+    "slow: Slow tests (e.g., model training)",
+    "load: Load and performance tests",
 ]
 
 [tool.coverage.run]
