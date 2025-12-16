@@ -128,15 +128,15 @@ def process_batch(batch):
 
     batch_start = time.time()
 
-    drop_cols = [
-        'fraud_bool', 'pattern', 'transaction_id', 'sender_id', 'receiver_id',
-        'timestamp', 'zip_code', 'ip_address', 'session_id',
-        'device_fingerprint', 'transaction_date'
-    ]
-    df = df.drop(columns=drop_cols, errors='ignore')
-
-    # One-hot encode categorical features
-    df_encoded = pd.get_dummies(df, columns=categorical_features, prefix=categorical_features)
+    # Import FeatureEngineer
+    from src.features.engineering import FeatureEngineer
+    
+    # Feature engineering using centralized class
+    engineer = FeatureEngineer(validate_schema=False)
+    df_features = engineer.transform(df)
+    
+    # Prepare for model (drop columns, encode categoricals)
+    df_encoded = engineer.prepare_for_model(df_features, encode_categoricals=True)
 
     # Align to training column structure
     for col in expected_columns:

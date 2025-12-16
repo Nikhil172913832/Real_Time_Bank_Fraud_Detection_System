@@ -93,34 +93,19 @@ class FraudDetectionTrainer:
         df = pd.read_csv(self.data_path)
         logger.info(f"Loaded {len(df):,} transactions")
         
-        # Feature engineering
-        df = self._engineer_features(df)
+        # Import FeatureEngineer
+        from src.features.engineering import FeatureEngineer
+        
+        # Feature engineering using centralized class
+        engineer = FeatureEngineer(validate_schema=False)
+        df = engineer.transform(df)
         
         # Separate features and target
         target_col = 'fraud_bool' if 'fraud_bool' in df.columns else 'is_fraud'
         y = df[target_col].astype(int)
         
-        # Categorical features for encoding
-        categorical_features = [
-            "source", "device_os", "browser", "merchant_category",
-            "is_international", "country_code", "merchant_risk_level",
-            "device_match", "hour_of_day", "day_of_week", 
-            "is_weekend", "month"
-        ]
-        
-        # Columns to drop
-        drop_cols = [
-            target_col, 'pattern', 'transaction_id', 'sender_id', 
-            'receiver_id', 'timestamp', 'zip_code', 'ip_address', 
-            'session_id', 'device_fingerprint', 'transaction_date'
-        ]
-        
-        # Prepare features
-        X = df.drop(columns=[col for col in drop_cols if col in df.columns], errors='ignore')
-        
-        # One-hot encode categorical features
-        categorical_features = [col for col in categorical_features if col in X.columns]
-        X = pd.get_dummies(X, columns=categorical_features, prefix=categorical_features)
+        # Prepare features for model
+        X = engineer.prepare_for_model(df, encode_categoricals=True)
         
         # Store feature columns for inference
         self.feature_columns = X.columns.tolist()
@@ -129,84 +114,6 @@ class FraudDetectionTrainer:
         logger.info(f"Fraud ratio: {y.mean():.4f} ({y.sum():,} / {len(y):,})")
         
         return X, y
-    
-    def _engineer_features(self, df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Engineer advanced features for fraud detection.
-        
-        Args:
-            df: Raw transaction DataFrame
-            
-        Returns:
-            DataFrame with engineered features
-        """
-        logger.info("Engineering features...")
-        
-        # Temporal features
-        if 'timestamp' in df.columns:
-            df['timestamp'] = pd.to_datetime(df['timestamp'])
-            df['hour_of_day'] = df['timestamp'].dt.hour
-            df['day_of_week'] = df['timestamp'].dt.dayofweek
-            df['is_weekend'] = df['day_of_week'].isin([5, 6]).astype(int)
-            df['month'] = df['timestamp'].dt.month
-            df['is_month_start'] = df['timestamp'].dt.day.isin([1, 2]).astype(int)
-            df['is_month_end'] = df['timestamp'].dt.day.isin([29, 30, 31]).astype(int)
-        
-        # Amount features
-        if 'amount' in df.columns:
-            df['amount_log'] = np.log1p(df['amount'])
-            df['amount_rounded'] = (df['amount'] % 1 == 0).astype(int)
-        
-        # Velocity features (transaction count and amount aggregations)
-        if 'sender_id' in df.columns and 'timestamp' in df.columns:
-            # Sort by timestamp for proper velocity calculation
-            df = df.sort_values('timestamp')
-            
-            # Sender transaction count (cumulative)
-            df['sender_txn_count'] = df.groupby('sender_id').cumcount() + 1
-            
-            # Time since last transaction (in seconds)
-            df['time_since_last_txn'] = (
-                df.groupby('sender_id')['timestamp']
-                .diff()
-                .dt.total_seconds()
-                .fillna(0)
-            )
-            
-            # Flag for rapid transactions (< 60 seconds)
-            df['is_rapid_txn'] = (df['time_since_last_txn'] < 60).astype(int)
-        
-        # Device and session features
-        if 'device_fingerprint' in df.columns and 'sender_id' in df.columns:
-            # Count unique devices per user
-            device_counts = df.groupby('sender_id')['device_fingerprint'].transform('nunique')
-            df['user_device_count'] = device_counts
-            df['is_new_device'] = (device_counts == 1).astype(int)
-        
-        # Location features
-        if 'zip_code' in df.columns and 'sender_id' in df.columns:
-            # Count unique locations per user
-            location_counts = df.groupby('sender_id')['zip_code'].transform('nunique')
-            df['user_location_count'] = location_counts
-            df['is_location_change'] = (location_counts > 1).astype(int)
-        
-        # Merchant risk level
-        if 'merchant_category' in df.columns:
-            risk_mapping = {
-                'Grocery': 1, 'Restaurants': 1, 'Utilities': 1,
-                'Clothing': 2, 'Gas': 2, 'Health': 2,
-                'Travel': 3, 'Entertainment': 3,
-                'Electronics': 4, 'Online Services': 4,
-                'Gambling': 5, 'Jewelry': 5, 'Gift Cards': 5, 'Money Transfer': 5
-            }
-            df['merchant_risk_level'] = df['merchant_category'].map(risk_mapping).fillna(3)
-        
-        # Binary flags
-        df['is_high_risk_merchant'] = (df['merchant_risk_level'] >= 4).astype(int)
-        df['is_late_night'] = df['hour_of_day'].isin([0, 1, 2, 3, 4]).astype(int)
-        
-        logger.info("Feature engineering completed")
-        return df
     
     def objective(self, trial: optuna.Trial, X_train: pd.DataFrame, y_train: pd.Series) -> float:
         """
