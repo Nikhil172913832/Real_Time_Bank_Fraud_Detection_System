@@ -24,6 +24,8 @@ import pandas as pd
 import joblib
 import optuna
 from optuna.samplers import TPESampler
+import mlflow
+import mlflow.xgboost
 
 from xgboost import XGBClassifier
 from sklearn.model_selection import StratifiedKFold, train_test_split
@@ -165,7 +167,7 @@ class FraudDetectionTrainer:
     
     def train(self) -> Dict:
         """
-        Execute the complete training pipeline.
+        Execute the complete training pipeline with MLflow tracking.
         
         Returns:
             Dictionary containing training metrics
@@ -175,73 +177,114 @@ class FraudDetectionTrainer:
         logger.info("Starting Fraud Detection Model Training Pipeline")
         logger.info("=" * 80)
         
-        # Load and prepare data
-        X, y = self.load_and_prepare_data()
+        # Set MLflow experiment
+        mlflow.set_experiment("fraud_detection")
         
-        # Train-test split
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=self.test_size, random_state=self.random_state, stratify=y
-        )
-        logger.info(f"Train set: {len(X_train):,} | Test set: {len(X_test):,}")
+        # Start MLflow run
+        run_name = f"fraud_detection_{datetime.now():%Y%m%d_%H%M%S}"
+        with mlflow.start_run(run_name=run_name):
         
-        # Hyperparameter optimization
-        logger.info(f"Starting hyperparameter optimization ({self.n_trials} trials)...")
-        study = optuna.create_study(
-            direction='maximize',
-            sampler=TPESampler(seed=self.random_state)
-        )
-        study.optimize(
-            lambda trial: self.objective(trial, X_train, y_train),
-            n_trials=self.n_trials,
-            show_progress_bar=True
-        )
+            # Load and prepare data
+            X, y = self.load_and_prepare_data()
+            
+            # Log dataset info
+            mlflow.log_param("total_samples", len(X))
+            mlflow.log_param("fraud_ratio", y.mean())
+            mlflow.log_param("n_features", len(self.feature_columns))
+            
+            # Train-test split
+            X_train, X_test, y_train, y_test = train_test_split(
+                X, y, test_size=self.test_size, random_state=self.random_state, stratify=y
+            )
+            logger.info(f"Train set: {len(X_train):,} | Test set: {len(X_test):,}")
+            
+            # Log split info
+            mlflow.log_param("test_size", self.test_size)
+            mlflow.log_param("train_samples", len(X_train))
+            mlflow.log_param("test_samples", len(X_test))
         
-        best_params = study.best_params
-        logger.info(f"Best ROC-AUC from CV: {study.best_value:.4f}")
-        logger.info(f"Best hyperparameters: {json.dumps(best_params, indent=2)}")
+            # Hyperparameter optimization
+            logger.info(f"Starting hyperparameter optimization ({self.n_trials} trials)...")
+            mlflow.log_param("n_trials", self.n_trials)
+            
+            study = optuna.create_study(
+                direction='maximize',
+                sampler=TPESampler(seed=self.random_state)
+            )
+            study.optimize(
+                lambda trial: self.objective(trial, X_train, y_train),
+                n_trials=self.n_trials,
+                show_progress_bar=True
+            )
+            
+            best_params = study.best_params
+            logger.info(f"Best ROC-AUC from CV: {study.best_value:.4f}")
+            logger.info(f"Best hyperparameters: {json.dumps(best_params, indent=2)}")
+            
+            # Log best hyperparameters to MLflow
+            mlflow.log_params(best_params)
+            mlflow.log_metric("best_cv_roc_auc", study.best_value)
         
-        # Train final model with best parameters
-        logger.info("Training final model with best hyperparameters...")
-        self.model = XGBClassifier(
-            **best_params,
-            random_state=self.random_state,
-            tree_method='hist',
-            eval_metric='auc'
-        )
-        self.model.fit(
-            X_train, y_train,
-            eval_set=[(X_test, y_test)],
-            verbose=False
-        )
+            # Train final model with best parameters
+            logger.info("Training final model with best hyperparameters...")
+            self.model = XGBClassifier(
+                **best_params,
+                random_state=self.random_state,
+                tree_method='hist',
+                eval_metric='auc'
+            )
+            self.model.fit(
+                X_train, y_train,
+                eval_set=[(X_test, y_test)],
+                verbose=False
+            )
         
-        # Evaluate on test set
-        logger.info("Evaluating model on test set...")
-        y_pred_proba = self.model.predict_proba(X_test)[:, 1]
-        y_pred = self.model.predict(X_test)
-        
-        # Calculate metrics
-        self.metrics = {
-            'roc_auc': roc_auc_score(y_test, y_pred_proba),
-            'recall': recall_score(y_test, y_pred),
-            'precision': precision_score(y_test, y_pred),
-            'f1_score': f1_score(y_test, y_pred),
-            'average_precision': average_precision_score(y_test, y_pred_proba),
-            'training_time_seconds': time.time() - start_time,
-            'n_features': len(self.feature_columns),
-            'train_samples': len(X_train),
-            'test_samples': len(X_test),
-            'best_params': best_params,
-            'timestamp': datetime.now().isoformat()
-        }
-        
-        # Confusion matrix
-        cm = confusion_matrix(y_test, y_pred)
-        self.metrics['confusion_matrix'] = {
-            'tn': int(cm[0, 0]),
-            'fp': int(cm[0, 1]),
-            'fn': int(cm[1, 0]),
-            'tp': int(cm[1, 1])
-        }
+            # Evaluate on test set
+            logger.info("Evaluating model on test set...")
+            y_pred_proba = self.model.predict_proba(X_test)[:, 1]
+            y_pred = self.model.predict(X_test)
+            
+            # Calculate metrics
+            self.metrics = {
+                'roc_auc': roc_auc_score(y_test, y_pred_proba),
+                'recall': recall_score(y_test, y_pred),
+                'precision': precision_score(y_test, y_pred),
+                'f1_score': f1_score(y_test, y_pred),
+                'average_precision': average_precision_score(y_test, y_pred_proba),
+                'training_time_seconds': time.time() - start_time,
+                'n_features': len(self.feature_columns),
+                'train_samples': len(X_train),
+                'test_samples': len(X_test),
+                'best_params': best_params,
+                'timestamp': datetime.now().isoformat()
+            }
+            
+            # Log metrics to MLflow
+            mlflow.log_metrics({
+                'roc_auc': self.metrics['roc_auc'],
+                'recall': self.metrics['recall'],
+                'precision': self.metrics['precision'],
+                'f1_score': self.metrics['f1_score'],
+                'average_precision': self.metrics['average_precision'],
+                'training_time_seconds': self.metrics['training_time_seconds']
+            })
+            
+            # Confusion matrix
+            cm = confusion_matrix(y_test, y_pred)
+            self.metrics['confusion_matrix'] = {
+                'tn': int(cm[0, 0]),
+                'fp': int(cm[0, 1]),
+                'fn': int(cm[1, 0]),
+                'tp': int(cm[1, 1])
+            }
+            
+            # Log confusion matrix metrics
+            mlflow.log_metrics({
+                'true_negatives': cm[0, 0],
+                'false_positives': cm[0, 1],
+                'false_negatives': cm[1, 0],
+                'true_positives': cm[1, 1]
+            })
         
         # Log results
         logger.info("=" * 80)
@@ -289,28 +332,65 @@ class FraudDetectionTrainer:
     
     def save_model(self, model_path: str = 'models/xgb_final.pkl'):
         """
-        Save trained model and feature columns.
+        Save trained model and feature columns to both local filesystem and MLflow.
         
         Args:
-            model_path: Path to save the model
+            model_path: Path to save the model locally
         """
         if self.model is None:
             raise ValueError("Model has not been trained yet")
         
-        # Save model
+        # Save model locally (for backward compatibility)
         joblib.dump(self.model, model_path)
-        logger.info(f"Model saved to {model_path}")
+        logger.info(f"Model saved locally to {model_path}")
         
-        # Save feature columns
+        # Save feature columns locally
         feature_path = 'models/feature_columns.pkl'
         joblib.dump(self.feature_columns, feature_path)
         logger.info(f"Feature columns saved to {feature_path}")
         
-        # Save metrics
+        # Save metrics locally
         metrics_path = 'metrics/training_metrics.json'
         with open(metrics_path, 'w') as f:
             json.dump(self.metrics, f, indent=2)
         logger.info(f"Metrics saved to {metrics_path}")
+        
+        # Log model to MLflow
+        try:
+            # Log the XGBoost model
+            mlflow.xgboost.log_model(
+                self.model,
+                "model",
+                registered_model_name="fraud_detector"
+            )
+            logger.info("Model logged to MLflow Model Registry")
+            
+            # Log feature columns as artifact
+            mlflow.log_artifact(feature_path, "model_artifacts")
+            
+            # Log metrics file as artifact
+            mlflow.log_artifact(metrics_path, "metrics")
+            
+            # Log feature importance if available
+            if os.path.exists('metrics/feature_importance.csv'):
+                mlflow.log_artifact('metrics/feature_importance.csv', "metrics")
+            
+            # Log model card if available
+            if os.path.exists('metrics/MODEL_CARD.md'):
+                mlflow.log_artifact('metrics/MODEL_CARD.md', "documentation")
+            
+            # Add tags to the run
+            mlflow.set_tags({
+                "model_type": "XGBoost",
+                "task": "fraud_detection",
+                "framework": "xgboost",
+                "algorithm": "gradient_boosting"
+            })
+            
+            logger.info("All artifacts logged to MLflow")
+        except Exception as e:
+            logger.warning(f"Failed to log to MLflow: {e}")
+            logger.warning("Model saved locally but MLflow logging failed")
         
         # Save model card
         self._save_model_card()
