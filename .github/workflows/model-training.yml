@@ -1,21 +1,22 @@
 name: Model Training
 
-on:
-  schedule:
-    # Run weekly on Sunday at 00:00 UTC
-    - cron: '0 0 * * 0'
-  workflow_dispatch:
-    inputs:
-      model_type:
-        description: 'Model type to train'
-        required: true
-        default: 'xgboost'
-        type: choice
-        options:
-          - xgboost
-          - lightgbm
-          - ensemble
-          - stacking
+# Workflow disabled - all triggers commented out
+# on:
+#   schedule:
+#     # Run weekly on Sunday at 00:00 UTC
+#     - cron: '0 0 * * 0'
+#   workflow_dispatch:
+#     inputs:
+#       model_type:
+#         description: 'Model type to train'
+#         required: true
+#         default: 'xgboost'
+#         type: choice
+#         options:
+#           - xgboost
+#           - lightgbm
+#           - ensemble
+#           - stacking
 
 jobs:
   train-model:
