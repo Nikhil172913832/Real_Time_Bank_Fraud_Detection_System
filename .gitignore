@@ -1,4 +1,12 @@
-# Python
+models/
+*.pkl
+*.pth
+*.h5
+
+data/raw/*
+data/processed/*
+!data/.gitkeep
+
 __pycache__/
 *.py[cod]
 *$py.class
@@ -16,123 +24,29 @@ parts/
 sdist/
 var/
 wheels/
-pip-wheel-metadata/
-share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-MANIFEST
 
-# Virtual Environment
-venv/
-.venv/
-ENV/
-env/
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
+
 .env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
 
-# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+
 .DS_Store
-
-# Jupyter Notebook
-.ipynb_checkpoints
-*.ipynb
-
-# Testing
-.pytest_cache/
-.coverage
-htmlcov/
-.tox/
-.nox/
-coverage.xml
-*.cover
-.hypothesis/
-.pytest_cache/
-
-# Type checking
-.mypy_cache/
-.dmypy.json
-dmypy.json
-.pyre/
-
-# Logs
-logs/
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-producer.log
-consumer.log
-
-# Models and Data
-models/*.pkl
-models/*.joblib
-models/*.h5
-models/*.pb
-data/*.csv
-data/*.parquet
-data/*.json
-data.csv
-archive
-
-# Keep model directories but not files
-!models/.gitkeep
-!data/.gitkeep
-
-# Database
-*.db
-*.sqlite
-*.sqlite3
-
-# Environment variables
-.env
-.env.local
-.env.*.local
-
-# Docker
-.dockerignore
-
-# MacOS
-.DS_Store
-.AppleDouble
-.LSOverride
-
-# Windows
 Thumbs.db
-ehthumbs.db
-Desktop.ini
-
-# Temporary files
-tmp/
-temp/
-*.tmp
-2
-
-# Backup files
-*.bak
-*.backup
-
-# Compiled files
-*.com
-*.class
-*.dll
-*.exe
-*.o
-*.so
-
-# MLflow
-mlruns/
-mlartifacts/
-
-# Prometheus
-prometheus_data/
-
-# Kafka
-kafka_data/
-
-# Redis
-dump.rdb
