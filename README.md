@@ -1,27 +1,26 @@
 # Real-Time Fraud Detection System
 
-End-to-end ML pipeline for detecting fraudulent transactions using adversarial training and ensemble methods on the IEEE-CIS fraud detection dataset.
+Advanced fraud detection using state-of-the-art deep learning: Graph Neural Networks, Transformers, and adversarial training on IEEE-CIS dataset.
 
 ## Features
 
-### ML Pipeline
-- XGBoost classifier with temporal train/test split
-- Adversarial training with Q-learning agent
-- Ensemble model (Isolation Forest + XGBoost)
-- Stateful feature engineering (prevents data leakage)
-- Drift detection and monitoring
+### Deep Learning Models
+- **Graph Neural Network (GNN)**: Heterogeneous graph with attention for transaction networks
+- **Temporal Transformer**: Multi-head self-attention for sequential patterns
+- **Hybrid Model**: Combines GNN (structural) + Transformer (temporal)
+- **Ensemble**: XGBoost + Isolation Forest
+- **Adversarial Training**: Q-learning agent that adapts to evade detection
+
+### Advanced Metrics
+- **AUPRC**: Area under precision-recall curve (key metric for imbalanced data)
+- **Precision@K / Recall@K**: Operational metrics for top-K predictions
+- **Cost-Sensitive**: Penalizes false negatives 10x more than false positives
+- **Focal Loss**: Addresses class imbalance in training
 
 ### Dataset
 - IEEE-CIS Fraud Detection (590K transactions)
 - Real-world fraud patterns
 - Temporal validation (no data leakage)
-
-### Engineering
-- Kafka streaming for transaction processing
-- PostgreSQL for data persistence
-- FastAPI REST endpoints
-- CI/CD with GitHub Actions
-- Comprehensive unit tests
 
 ## Quick Start
 
@@ -40,6 +39,7 @@ kaggle competitions download -c ieee-fraud-detection -p data/raw/
 cd data/raw && unzip ieee-fraud-detection.zip
 ```
 
+
 ### Train Models
 ```bash
 # Train base XGBoost model
@@ -50,6 +50,11 @@ python train_ensemble.py
 
 # Train adversarial agent
 python train_adversarial.py
+
+# Train advanced deep learning models
+python train_advanced.py --model gnn          # Graph Neural Network
+python train_advanced.py --model transformer  # Temporal Transformer
+python train_advanced.py --model hybrid       # GNN + Transformer
 ```
 
 ### Evaluate
@@ -60,19 +65,25 @@ python evaluate.py
 ## Architecture
 
 ```
-Data Loading → Feature Engineering → Model Training → Adversarial Training
-     ↓                  ↓                   ↓                  ↓
-IEEE-CIS          Stateful Fit/      XGBoost +         Q-Learning
-Dataset           Transform         Isolation         Agent
-                                    Forest
+Transaction Data
+    ├─→ GNN (Graph Structure) ────────┐
+    ├─→ Transformer (Temporal) ────────┼─→ Hybrid Fusion ─→ Prediction
+    ├─→ XGBoost (Supervised) ──────────┤
+    └─→ Isolation Forest (Anomaly) ────┘
+         ↓
+    Adversarial Agent (Q-Learning)
+         ↓
+    Adaptive Retraining
 ```
 
 ## Key Differentiators
 
-1. **Adversarial Training**: Q-learning agent learns to evade detection, model adapts
-2. **Ensemble Approach**: Supervised (XGBoost) + Unsupervised (Isolation Forest)
-3. **No Data Leakage**: Temporal validation and stateful feature engineering
-4. **Production Ready**: Drift detection, monitoring, comprehensive tests
+1. **Graph Neural Networks**: Models transaction network with users, merchants, devices
+2. **Temporal Transformers**: Captures long-range sequential dependencies with attention
+3. **Hybrid Architecture**: Combines structural (GNN) and temporal (Transformer) patterns
+4. **Advanced Metrics**: AUPRC, Precision@K for imbalanced data
+5. **Adversarial Training**: Q-learning agent learns to evade detection
+6. **No Data Leakage**: Temporal validation and stateful feature engineering
 
 ## Project Structure
 
