@@ -1,5 +1,5 @@
-"""Monitoring package for fraud detection system."""
+"""Monitoring utilities."""
 
-from .model_monitor import ModelMonitor
+from .drift_detector import DriftDetector
 
-__all__ = ['ModelMonitor']
+__all__ = ["DriftDetector"]
