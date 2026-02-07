@@ -90,17 +90,25 @@ Transaction Data
 ```
 .
 ├── src/
-│   ├── data/              # Data loading and validation
-│   ├── features/          # Feature engineering
-│   ├── models/            # Model implementations
+│   ├── data/              # IEEE-CIS data loading
+│   ├── features/          # Stateful feature engineering
+│   ├── models/            # All model implementations
+│   │   ├── ensemble.py           # XGBoost + Isolation Forest
+│   │   ├── gnn_fraud_detector.py # Graph Neural Network
+│   │   ├── transformer_fraud_detector.py # Temporal Transformer
+│   │   ├── hybrid_detector.py    # GNN + Transformer fusion
+│   │   ├── advanced_metrics.py   # AUPRC, Precision@K, etc.
+│   │   └── validation.py         # Temporal train/test split
 │   ├── adversarial/       # Q-learning agent
 │   └── monitoring/        # Drift detection
 ├── tests/
-│   └── unit/              # Unit tests
-├── train.py               # Base model training
+│   ├── unit/              # Unit tests (all models)
+│   └── integration/       # End-to-end tests
+├── train.py               # XGBoost training
 ├── train_ensemble.py      # Ensemble training
 ├── train_adversarial.py   # Adversarial training
-└── evaluate.py            # Model evaluation
+├── train_advanced.py      # GNN/Transformer/Hybrid training
+└── evaluate.py            # Unified evaluation (auto-detects advanced metrics)
 ```
 
 ## Performance
