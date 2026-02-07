@@ -1,25 +1,25 @@
-# 🔒 Real-Time Bank Fraud Detection System
+# Real-Time Fraud Detection System
 
 [![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-**Production-grade MLOps system for detecting fraudulent banking transactions in real-time using XGBoost, Kafka, and PostgreSQL.**
+End-to-end ML pipeline for detecting fraudulent transactions using XGBoost on the IEEE-CIS fraud detection dataset.
 
 ---
 
-## 📊 Performance Metrics
+## Performance Metrics
 
-| Metric | Value | Target |
-|--------|-------|--------|
-| **ROC-AUC** | 98.2% | ≥98.0% |
-| **Recall** | 80.5% | ≥80.0% |
-| **Precision** | 92.3% | ≥90.0% |
-| **F1-Score** | 86.0% | ≥85.0% |
-| **Throughput** | 1,000+ TPS | ≥1,000 TPS |
-| **Latency (p95)** | <150ms | <200ms |
-| **False Positive Rate** | 2.1% | <3.0% |
+Evaluated on IEEE-CIS dataset with temporal train/test split:
+
+| Metric | Value | Notes |
+|--------|-------|-------|
+| **ROC-AUC** | TBD | Will update after training on full dataset |
+| **Precision** | TBD | At optimal threshold |
+| **Recall** | TBD | At optimal threshold |
+| **F1-Score** | TBD | Harmonic mean |
+
+*Note: This is a portfolio project demonstrating ML pipeline design and MLOps practices.*
 
 ---
 
@@ -65,29 +65,19 @@
 
 ---
 
-## 🚀 Key Features
+## Key Features
 
-### Machine Learning
-- ✅ **XGBoost Classifier** with hyperparameter tuning (Optuna)
-- ✅ **70+ Engineered Features** including velocity checks, behavioral patterns
-- ✅ **SHAP Explanations** for model interpretability and regulatory compliance
-- ✅ **Real-time Inference** with <150ms latency
-- ✅ **Model Versioning** with MLflow registry
-- ✅ **Data Drift Detection** for model monitoring
+### ML Pipeline
+- XGBoost classifier with temporal train/test split
+- Stateful feature engineering (prevents data leakage)
+- IEEE-CIS fraud detection dataset (590K transactions)
+- Model evaluation with ROC-AUC, precision, recall
 
-### Engineering Excellence
-- ✅ **High Performance**: 1,000+ transactions/second throughput
-- ✅ **Production-Ready**: Circuit breaker pattern, connection pooling
-- ✅ **Streaming**: Apache Kafka for real-time data processing
-- ✅ **API**: RESTful endpoints with OpenAPI documentation
-- ✅ **Monitoring**: Prometheus metrics + Streamlit dashboard
-- ✅ **Testing**: Unit, integration, and load tests (95%+ coverage)
-
-### DevOps & Infrastructure
-- ✅ **Containerization**: Docker Compose for local development
-- ✅ **CI/CD**: GitHub Actions for automated testing and deployment
-- ✅ **Code Quality**: Black, Flake8, MyPy, Pylint
-- ✅ **Logging**: Structured logging with rotation
+### Engineering
+- Kafka streaming for transaction processing
+- PostgreSQL for data persistence
+- FastAPI REST endpoints
+- CI/CD with GitHub Actions
 - ✅ **Configuration**: Environment-based config management
 
 ---
