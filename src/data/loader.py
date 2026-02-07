@@ -1,17 +1,5 @@
 """
-IEEE-CIS Fraud Detection Data Loader
-====================================
-
-Handles loading, validation, and preprocessing of the IEEE-CIS fraud detection dataset.
-
-Dataset: https://www.kaggle.com/c/ieee-fraud-detection
-- train_transaction.csv: Transaction data (590K rows, 394 columns)
-- train_identity.csv: Identity data (144K rows, 41 columns)
-
-Usage:
-    loader = FraudDataLoader(data_dir="data/raw")
-    df = loader.load()
-    loader.validate(df)
+IEEE-CIS fraud detection data loader.
 """
 
 import pandas as pd
@@ -25,28 +13,9 @@ logger = logging.getLogger(__name__)
 
 
 class FraudDataLoader:
-    """
-    Load and validate IEEE-CIS fraud detection dataset.
-
-    This class handles:
-    - Loading transaction and identity data
-    - Merging datasets
-    - Data quality validation
-    - Basic preprocessing
-
-    Attributes:
-        data_dir: Directory containing raw CSV files
-        train_transaction: Transaction data
-        train_identity: Identity data
-    """
+    """Load and validate IEEE-CIS fraud detection dataset."""
 
     def __init__(self, data_dir: str = "data/raw"):
-        """
-        Initialize data loader.
-
-        Args:
-            data_dir: Path to directory containing IEEE-CIS CSV files
-        """
         self.data_dir = Path(data_dir)
         self.train_transaction = None
         self.train_identity = None
@@ -64,19 +33,7 @@ class FraudDataLoader:
     def load(
         self, load_test: bool = False, sample_frac: Optional[float] = None
     ) -> pd.DataFrame:
-        """
-        Load and merge transaction and identity data.
-
-        Args:
-            load_test: If True, load test set instead of train set
-            sample_frac: If provided, sample this fraction of data (for quick testing)
-
-        Returns:
-            Merged DataFrame with transaction and identity data
-
-        Raises:
-            FileNotFoundError: If required CSV files are missing
-        """
+        """Load and merge transaction and identity data."""
         logger.info("Loading IEEE-CIS fraud detection dataset...")
 
         # Determine which files to load
@@ -131,21 +88,7 @@ class FraudDataLoader:
         return df
 
     def validate(self, df: pd.DataFrame) -> None:
-        """
-        Validate data quality and log warnings.
-
-        Checks:
-        - Required columns present
-        - Fraud rate is reasonable
-        - No duplicate transactions
-        - Missing value patterns
-
-        Args:
-            df: DataFrame to validate
-
-        Raises:
-            ValueError: If critical validation checks fail
-        """
+        """Validate data quality and log warnings."""
         logger.info("Validating data quality...")
 
         # Check for required columns
@@ -202,15 +145,7 @@ class FraudDataLoader:
         logger.info("=" * 60)
 
     def get_basic_stats(self, df: pd.DataFrame) -> dict:
-        """
-        Get basic statistics about the dataset.
-
-        Args:
-            df: DataFrame to analyze
-
-        Returns:
-            Dictionary with dataset statistics
-        """
+        """Get basic statistics about the dataset."""
         stats = {
             "n_rows": len(df),
             "n_columns": len(df.columns),
@@ -233,20 +168,7 @@ class FraudDataLoader:
 def quick_load_and_validate(
     data_dir: str = "data/raw", sample_frac: Optional[float] = None
 ) -> pd.DataFrame:
-    """
-    Convenience function to quickly load and validate data.
-
-    Args:
-        data_dir: Path to data directory
-        sample_frac: Optional fraction to sample
-
-    Returns:
-        Validated DataFrame
-
-    Example:
-        >>> df = quick_load_and_validate(sample_frac=0.1)
-        >>> print(f"Loaded {len(df):,} transactions")
-    """
+    """Convenience function to quickly load and validate data."""
     loader = FraudDataLoader(data_dir=data_dir)
     df = loader.load(sample_frac=sample_frac)
     loader.validate(df)
