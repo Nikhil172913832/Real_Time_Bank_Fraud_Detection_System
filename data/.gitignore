@@ -1,0 +1,5 @@
+data/raw/*
+data/processed/*
+!data/.gitkeep
+*.csv
+*.parquet
