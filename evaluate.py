@@ -1,7 +1,3 @@
-"""
-Evaluation and benchmarking script.
-"""
-
 import logging
 import pickle
 import time
@@ -41,7 +37,7 @@ logger = logging.getLogger(__name__)
 def evaluate_model(
     model_path: str, engineer_path: str, use_advanced_metrics: bool = True
 ):
-    """Comprehensive model evaluation."""
+    """Evaluate a trained model on the held-out split."""
 
     logger.info("Loading model and data")
     with open(model_path, "rb") as f:
@@ -68,7 +64,7 @@ def evaluate_model(
     test_pred = (test_pred_proba > 0.5).astype(int)
 
     if use_advanced_metrics and ADVANCED_METRICS_AVAILABLE:
-        logger.info("Using advanced metrics for imbalanced data")
+        logger.info("Using advanced metrics")
         metrics = comprehensive_evaluation(
             test_y.values, test_pred_proba, k_values=[10, 50, 100, 500]
         )
@@ -85,30 +81,21 @@ def evaluate_model(
         cm = confusion_matrix(test_y, test_pred)
         tn, fp, fn, tp = cm.ravel()
 
-        logger.info("=" * 70)
-        logger.info("Model Evaluation Results")
-        logger.info("=" * 70)
-        logger.info(f"Dataset: IEEE-CIS Fraud Detection")
-        logger.info(f"Test samples: {len(test_X):,}")
-        logger.info(f"Fraud rate: {test_y.mean():.2%}")
-        logger.info("")
-        logger.info("Performance Metrics:")
-        logger.info(f"  ROC-AUC:    {auc:.4f}")
-        logger.info(f"  Precision:  {precision:.4f}")
-        logger.info(f"  Recall:     {recall:.4f}")
-        logger.info(f"  F1-Score:   {f1:.4f}")
-        logger.info("")
-        logger.info("Confusion Matrix:")
-        logger.info(f"  True Negatives:  {tn:,}")
-        logger.info(f"  False Positives: {fp:,}")
-        logger.info(f"  False Negatives: {fn:,}")
-        logger.info(f"  True Positives:  {tp:,}")
-        logger.info("")
-        logger.info("Performance:")
-        logger.info(f"  Inference time: {inference_time:.2f}s")
-        logger.info(f"  Throughput:     {len(test_X) / inference_time:.0f} TPS")
-        logger.info(f"  Latency (avg):  {inference_time / len(test_X) * 1000:.2f}ms")
-        logger.info("=" * 70)
+        logger.info("Test samples: %s | Fraud rate: %.2f%%", f"{len(test_X):,}", test_y.mean() * 100)
+        logger.info(
+            "AUC: %.4f | Precision: %.4f | Recall: %.4f | F1: %.4f",
+            auc,
+            precision,
+            recall,
+            f1,
+        )
+        logger.info("TN: %s | FP: %s | FN: %s | TP: %s", f"{tn:,}", f"{fp:,}", f"{fn:,}", f"{tp:,}")
+        logger.info(
+            "Inference: %.2fs | Throughput: %.0f TPS | Latency: %.2f ms",
+            inference_time,
+            len(test_X) / inference_time,
+            inference_time / len(test_X) * 1000,
+        )
 
         metrics = {
             "auc": auc,

@@ -1,7 +1,3 @@
-"""
-Training pipeline with ensemble model.
-"""
-
 import logging
 import pickle
 from pathlib import Path
@@ -19,8 +15,13 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def _log_scores(train_auc: float, test_auc: float, precision: float, recall: float, f1: float) -> None:
+    logger.info("Train AUC: %.4f | Test AUC: %.4f", train_auc, test_auc)
+    logger.info("Precision: %.4f | Recall: %.4f | F1: %.4f", precision, recall, f1)
+
+
 def train_ensemble():
-    """Train ensemble fraud detection model."""
+    """Train the ensemble fraud model."""
 
     logger.info("Starting ensemble training pipeline")
 
@@ -63,15 +64,7 @@ def train_ensemble():
         test_y, test_pred_binary, average="binary"
     )
 
-    logger.info("=" * 60)
-    logger.info("Ensemble Performance")
-    logger.info("=" * 60)
-    logger.info(f"Train ROC-AUC: {train_auc:.4f}")
-    logger.info(f"Test ROC-AUC:  {test_auc:.4f}")
-    logger.info(f"Precision:     {precision:.4f}")
-    logger.info(f"Recall:        {recall:.4f}")
-    logger.info(f"F1-Score:      {f1:.4f}")
-    logger.info("=" * 60)
+    _log_scores(train_auc, test_auc, precision, recall, f1)
 
     logger.info("Saving models")
     Path("models").mkdir(exist_ok=True)

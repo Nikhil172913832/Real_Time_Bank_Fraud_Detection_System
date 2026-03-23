@@ -1,7 +1,3 @@
-"""
-Training script for advanced deep learning models.
-"""
-
 import logging
 import pickle
 from pathlib import Path
@@ -28,13 +24,8 @@ logger = logging.getLogger(__name__)
 
 
 def train_advanced_models(model_type: str = "hybrid"):
-    """
-    Train advanced deep learning models.
-
-    Args:
-        model_type: One of ['gnn', 'transformer', 'hybrid']
-    """
-    logger.info(f"Training {model_type.upper()} model")
+    """Train one of the deep learning fraud models."""
+    logger.info("Training %s model", model_type.upper())
 
     loader = FraudDataLoader(data_dir="data/raw")
     df = loader.load(sample_frac=0.1)
