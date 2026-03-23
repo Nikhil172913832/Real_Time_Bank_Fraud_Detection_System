@@ -1,7 +1,3 @@
-"""
-Model drift detection and monitoring.
-"""
-
 import logging
 import pandas as pd
 from typing import Dict
@@ -11,10 +7,7 @@ logger = logging.getLogger(__name__)
 
 
 class DriftDetector:
-    """
-    Detect data drift using statistical tests.
-    Monitors feature distributions and triggers retraining.
-    """
+    """Detect drift from shifts in feature distributions."""
 
     def __init__(self, reference_data: pd.DataFrame, drift_threshold: float = 0.3):
         self.reference_data = reference_data

@@ -1,9 +1,3 @@
-"""
-Feature Engineering Pipeline
-
-Stateful feature engineering with fit/transform pattern to prevent data leakage.
-"""
-
 import logging
 import numpy as np
 import pandas as pd
@@ -12,15 +6,7 @@ logger = logging.getLogger(__name__)
 
 
 class FeatureEngineer:
-    """
-    Stateful feature engineering preventing train-test leakage.
-
-    Usage:
-        engineer = FeatureEngineer()
-        engineer.fit(train_df)
-        train_features = engineer.transform(train_df)
-        test_features = engineer.transform(test_df)
-    """
+    """Fit/transform feature engineering with training-only statistics."""
 
     def __init__(self):
         self.fitted = False

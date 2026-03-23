@@ -1,8 +1,3 @@
-"""
-Adversarial fraudster agent using Q-learning.
-Learns to evade fraud detection by manipulating transaction features.
-"""
-
 import logging
 import numpy as np
 import pandas as pd
@@ -13,14 +8,7 @@ logger = logging.getLogger(__name__)
 
 
 class FraudsterAgent:
-    """
-    Q-learning agent that learns to generate fraudulent transactions
-    that evade the fraud detection model.
-
-    State: Discretized transaction features
-    Action: Feature manipulations (amount, timing, etc.)
-    Reward: +1 if fraud not detected, -1 if detected
-    """
+    """Q-learning agent that tries to evade the fraud detector."""
 
     def __init__(
         self,

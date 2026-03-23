@@ -1,7 +1,3 @@
-"""
-IEEE-CIS fraud detection data loader.
-"""
-
 import pandas as pd
 import numpy as np
 import logging
@@ -22,7 +18,6 @@ class FraudDataLoader:
         self.test_transaction = None
         self.test_identity = None
 
-        # Verify data directory exists
         if not self.data_dir.exists():
             raise FileNotFoundError(
                 f"Data directory not found: {self.data_dir}\n"
@@ -36,7 +31,6 @@ class FraudDataLoader:
         """Load and merge transaction and identity data."""
         logger.info("Loading IEEE-CIS fraud detection dataset...")
 
-        # Determine which files to load
         if load_test:
             txn_file = self.data_dir / "test_transaction.csv"
             identity_file = self.data_dir / "test_identity.csv"
@@ -44,25 +38,21 @@ class FraudDataLoader:
             txn_file = self.data_dir / "train_transaction.csv"
             identity_file = self.data_dir / "train_identity.csv"
 
-        # Verify files exist
         if not txn_file.exists():
             raise FileNotFoundError(
                 f"Transaction file not found: {txn_file}\n"
                 f"Please download IEEE-CIS dataset first."
             )
 
-        # Load transaction data
         logger.info(f"Loading transaction data from {txn_file.name}...")
         self.train_transaction = pd.read_csv(txn_file)
         logger.info(f"Loaded {len(self.train_transaction):,} transactions")
 
-        # Load identity data (if exists)
         if identity_file.exists():
             logger.info(f"Loading identity data from {identity_file.name}...")
             self.train_identity = pd.read_csv(identity_file)
             logger.info(f"Loaded {len(self.train_identity):,} identity records")
 
-            # Merge on TransactionID
             logger.info("Merging transaction and identity data...")
             df = self.train_transaction.merge(
                 self.train_identity, on="TransactionID", how="left"
@@ -73,13 +63,11 @@ class FraudDataLoader:
             logger.warning("Proceeding with transaction data only")
             df = self.train_transaction.copy()
 
-        # Sample if requested (for quick testing)
         if sample_frac is not None:
             logger.info(f"Sampling {sample_frac:.1%} of data...")
             df = df.sample(frac=sample_frac, random_state=42)
             logger.info(f"Sampled dataset: {len(df):,} rows")
 
-        # Log basic statistics
         if "isFraud" in df.columns:
             fraud_count = df["isFraud"].sum()
             fraud_rate = df["isFraud"].mean()
@@ -91,7 +79,6 @@ class FraudDataLoader:
         """Validate data quality and log warnings."""
         logger.info("Validating data quality...")
 
-        # Check for required columns
         required = ["TransactionID", "TransactionDT", "TransactionAmt"]
         if "isFraud" in df.columns:
             required.append("isFraud")
@@ -100,42 +87,37 @@ class FraudDataLoader:
         if missing:
             raise ValueError(f"Missing required columns: {missing}")
 
-        logger.info("✓ Required columns present")
+        logger.info("Required columns present")
 
-        # Check fraud ratio (if labels available)
         if "isFraud" in df.columns:
             fraud_rate = df["isFraud"].mean()
             if fraud_rate < 0.01 or fraud_rate > 0.5:
                 logger.warning(
-                    f"⚠ Unusual fraud rate: {fraud_rate:.2%} "
+                    f"Unusual fraud rate: {fraud_rate:.2%} "
                     f"(expected 2-5% for IEEE-CIS)"
                 )
             else:
-                logger.info(f"✓ Fraud rate: {fraud_rate:.2%} (reasonable)")
+                logger.info(f"Fraud rate: {fraud_rate:.2%}")
 
-        # Check for duplicates
         dupes = df["TransactionID"].duplicated().sum()
         if dupes > 0:
-            logger.warning(f"⚠ Found {dupes:,} duplicate transactions")
+            logger.warning(f"Found {dupes:,} duplicate transactions")
         else:
-            logger.info("✓ No duplicate transactions")
+            logger.info("No duplicate transactions")
 
-        # Check missing values
         missing_pct = (df.isnull().sum() / len(df) * 100).sort_values(ascending=False)
         high_missing = missing_pct[missing_pct > 50]
 
         if len(high_missing) > 0:
             logger.warning(
-                f"⚠ {len(high_missing)} columns with >50% missing values:\n"
+                f"{len(high_missing)} columns with >50% missing values:\n"
                 f"{high_missing.head(10)}"
             )
 
-        # Check data types
         logger.info(f"Data types: {df.dtypes.value_counts().to_dict()}")
 
-        # Summary
         logger.info("=" * 60)
-        logger.info("Data Validation Summary")
+        logger.info("Data validation summary")
         logger.info("=" * 60)
         logger.info(f"Total rows: {len(df):,}")
         logger.info(f"Total columns: {len(df.columns)}")
@@ -156,7 +138,6 @@ class FraudDataLoader:
             stats["fraud_count"] = int(df["isFraud"].sum())
             stats["fraud_rate"] = float(df["isFraud"].mean())
 
-        # Missing value summary
         stats["missing_values"] = {
             "total": int(df.isnull().sum().sum()),
             "columns_with_missing": int((df.isnull().sum() > 0).sum()),
@@ -168,7 +149,7 @@ class FraudDataLoader:
 def quick_load_and_validate(
     data_dir: str = "data/raw", sample_frac: Optional[float] = None
 ) -> pd.DataFrame:
-    """Convenience function to quickly load and validate data."""
+    """Load and validate data in one call."""
     loader = FraudDataLoader(data_dir=data_dir)
     df = loader.load(sample_frac=sample_frac)
     loader.validate(df)
@@ -176,34 +157,29 @@ def quick_load_and_validate(
 
 
 if __name__ == "__main__":
-    # Configure logging
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
 
-    # Example usage
     print("IEEE-CIS Fraud Detection Data Loader")
     print("=" * 60)
 
     try:
-        # Load data
         loader = FraudDataLoader(data_dir="data/raw")
-        df = loader.load(sample_frac=0.1)  # Load 10% sample for testing
+        df = loader.load(sample_frac=0.1)
 
-        # Validate
         loader.validate(df)
 
-        # Get stats
         stats = loader.get_basic_stats(df)
         print("\nDataset Statistics:")
         for key, value in stats.items():
             print(f"  {key}: {value}")
 
-        print("\n✓ Data loader working correctly!")
+        print("\nData loader finished successfully")
 
     except FileNotFoundError as e:
-        print(f"\n❌ Error: {e}")
+        print(f"\nError: {e}")
         print("\nTo download the dataset:")
         print("  1. Install Kaggle CLI: pip install kaggle")
         print("  2. Configure API token: https://www.kaggle.com/settings")

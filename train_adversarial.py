@@ -1,8 +1,3 @@
-"""
-Adversarial training loop.
-Train fraud detector against adversarial fraudster agent.
-"""
-
 import logging
 import pickle
 from pathlib import Path
@@ -25,13 +20,7 @@ def adversarial_training(
     n_rounds: int = 5,
     n_episodes_per_round: int = 3,
 ):
-    """
-    Adversarial training loop:
-    1. Fraudster learns to evade current model
-    2. Collect adversarial examples
-    3. Retrain model on adversarial examples
-    4. Repeat
-    """
+    """Run adversarial training rounds against the current fraud model."""
 
     logger.info("Loading initial model and feature engineer")
     with open(initial_model_path, "rb") as f:
