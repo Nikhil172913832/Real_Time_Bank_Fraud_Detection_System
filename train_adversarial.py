@@ -2,11 +2,7 @@ import logging
 import pickle
 from pathlib import Path
 
-import pandas as pd
-from xgboost import XGBClassifier
-
 from src.adversarial.agent import FraudsterAgent
-from src.features.engineering import FeatureEngineer
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -31,12 +27,10 @@ def adversarial_training(
 
     agent = FraudsterAgent()
 
-    history = {"round": [], "evasion_rate": [], "q_table_size": []}
+    history: dict[str, list] = {"round": [], "evasion_rate": [], "q_table_size": []}
 
     for round_num in range(n_rounds):
-        logger.info(f"\n{'=' * 60}")
-        logger.info(f"Round {round_num + 1}/{n_rounds}")
-        logger.info(f"{'=' * 60}")
+        logger.info("Round %s/%s", round_num + 1, n_rounds)
 
         round_evasion_rates = []
 
@@ -57,11 +51,11 @@ def adversarial_training(
 
         logger.info(f"Round {round_num + 1} avg evasion rate: {avg_evasion:.1%}")
 
-    logger.info("\nSaving adversarial agent")
+    logger.info("Saving adversarial agent")
     Path("models").mkdir(exist_ok=True)
     agent.save("models/adversarial_agent.pkl")
 
-    logger.info("\nAdversarial training complete")
+    logger.info("Adversarial training complete")
     logger.info(f"Final evasion rate: {history['evasion_rate'][-1]:.1%}")
     logger.info(f"Q-table size: {history['q_table_size'][-1]}")
 

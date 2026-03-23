@@ -1,9 +1,4 @@
-"""
-Unit Tests for Training Pipeline
-=================================
-
-Tests for the FraudDetectionTrainer class.
-"""
+"""Unit tests for the training pipeline."""
 
 import pytest
 import pandas as pd
@@ -14,7 +9,6 @@ import os
 from pathlib import Path
 import sys
 
-# Add project root to path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
@@ -78,16 +72,13 @@ class TestFraudDetectionTrainer:
         
         X, y = trainer.load_and_prepare_data()
         
-        # Check shapes
         assert len(X) == 1000
         assert len(y) == 1000
         assert len(X.columns) > 0
         
-        # Check target
         assert y.dtype == np.int64
         assert set(y.unique()).issubset({0, 1})
         
-        # Check feature columns stored
         assert trainer.feature_columns is not None
         assert len(trainer.feature_columns) > 0
     
@@ -97,26 +88,23 @@ class TestFraudDetectionTrainer:
             data_path=sample_training_data,
             test_size=0.2,
             random_state=42,
-            n_trials=2  # Small number for fast testing
+            n_trials=2
         )
         
         metrics = trainer.train()
         
-        # Check metrics exist
         assert 'roc_auc' in metrics
         assert 'recall' in metrics
         assert 'precision' in metrics
         assert 'f1_score' in metrics
         assert 'training_time_seconds' in metrics
         
-        # Check metrics are valid
         assert 0 <= metrics['roc_auc'] <= 1
         assert 0 <= metrics['recall'] <= 1
         assert 0 <= metrics['precision'] <= 1
         assert 0 <= metrics['f1_score'] <= 1
         assert metrics['training_time_seconds'] > 0
         
-        # Check model is trained
         assert trainer.model is not None
     
     def test_save_model(self, sample_training_data, tmp_path):
@@ -126,17 +114,13 @@ class TestFraudDetectionTrainer:
             n_trials=2
         )
         
-        # Train model
         trainer.train()
         
-        # Save model
         model_path = tmp_path / "test_model.pkl"
         trainer.save_model(str(model_path))
         
-        # Check files exist
         assert model_path.exists()
         
-        # Check feature columns saved
         feature_path = Path('models/feature_columns.pkl')
         if feature_path.exists():
             assert feature_path.stat().st_size > 0
@@ -166,10 +150,8 @@ class TestFeatureEngineering:
         )
         X2, _ = trainer2.load_and_prepare_data()
         
-        # Check column names are identical
         assert list(X1.columns) == list(X2.columns)
         
-        # Check feature columns stored are identical
         assert trainer1.feature_columns == trainer2.feature_columns
 
 
@@ -188,7 +170,6 @@ class TestModelPerformance:
         
         metrics = trainer.train()
         
-        # Performance targets (relaxed for test data)
         assert metrics['roc_auc'] >= 0.5, f"ROC-AUC {metrics['roc_auc']} below minimum 0.5"
         assert metrics['recall'] >= 0.0, f"Recall {metrics['recall']} is negative"
         assert metrics['precision'] >= 0.0, f"Precision {metrics['precision']} is negative"
@@ -208,11 +189,9 @@ class TestHyperparameterOptimization:
         X_train = X.iloc[:800]
         y_train = y.iloc[:800]
         
-        # Create a trial
         import optuna
         study = optuna.create_study(direction='maximize')
         
-        # Test objective function
         trial = study.ask()
         score = trainer.objective(trial, X_train, y_train)
         
