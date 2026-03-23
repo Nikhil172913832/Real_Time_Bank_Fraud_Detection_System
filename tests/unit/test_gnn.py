@@ -1,6 +1,4 @@
-"""
-Unit tests for GNN fraud detector.
-"""
+"""Unit tests for the GNN fraud detector."""
 
 import pytest
 import torch

@@ -1,6 +1,4 @@
-"""
-Unit tests for Transformer fraud detector.
-"""
+"""Unit tests for the transformer fraud detector."""
 
 import pytest
 import torch

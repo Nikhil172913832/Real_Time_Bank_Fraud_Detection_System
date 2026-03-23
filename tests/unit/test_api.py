@@ -1,17 +1,11 @@
-"""
-Unit Tests for API Endpoints
-=============================
-
-Tests for Flask API endpoints to ensure correct behavior.
-"""
+"""Unit tests for API endpoints."""
 
 import pytest
 import json
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 import sys
 from pathlib import Path
 
-# Add project root to path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
@@ -239,12 +233,9 @@ class TestRequestTracking:
     
     def test_request_counter_increments(self, app_client):
         """Test that request counter increments on API calls."""
-        # Make a request
         app_client.get('/health')
         
-        # Get metrics
         response = app_client.get('/metrics')
         data = response.data.decode('utf-8')
         
-        # Check that metrics were recorded
         assert 'api_requests_total' in data or 'fraud_predictions_total' in data

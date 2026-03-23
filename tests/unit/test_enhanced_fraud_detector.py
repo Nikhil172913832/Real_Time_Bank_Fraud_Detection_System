@@ -1,6 +1,4 @@
-"""
-Unit tests for EnhancedFraudDetector
-"""
+"""Unit tests for EnhancedFraudDetector."""
 
 import pytest
 import numpy as np

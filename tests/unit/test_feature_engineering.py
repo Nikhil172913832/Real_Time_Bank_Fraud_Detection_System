@@ -1,6 +1,4 @@
-"""
-Unit tests for feature engineering.
-"""
+"""Unit tests for feature engineering."""
 
 import pytest
 import pandas as pd

@@ -1,8 +1,5 @@
-"""
-Integration test for end-to-end pipeline.
-"""
+"""Integration tests for the end-to-end pipeline."""
 
-import pytest
 import pandas as pd
 import numpy as np
 from src.data.loader import FraudDataLoader

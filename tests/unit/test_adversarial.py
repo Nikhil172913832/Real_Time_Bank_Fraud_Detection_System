@@ -1,6 +1,4 @@
-"""
-Unit tests for adversarial agent.
-"""
+"""Unit tests for the adversarial agent."""
 
 import pytest
 import pandas as pd

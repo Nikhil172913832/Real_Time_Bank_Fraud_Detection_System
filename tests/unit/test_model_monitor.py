@@ -1,6 +1,4 @@
-"""
-Unit tests for ModelMonitor
-"""
+"""Unit tests for model monitoring."""
 
 import pytest
 import numpy as np

@@ -1,6 +1,4 @@
-"""
-Unit tests for advanced metrics.
-"""
+"""Unit tests for advanced metrics."""
 
 import pytest
 import numpy as np
